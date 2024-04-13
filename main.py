@@ -7,8 +7,8 @@ pygame.init()
 
 FPS = 60
 WIDTH, HEIGHT = 800, 800
-# WIDTH, HEIGHT = 1920, 1080
-ROWS = COLS = 4
+ROWS = 4
+COLS = 4
 
 RECT_HEIGHT = HEIGHT // ROWS
 RECT_WIDTH = WIDTH // COLS
@@ -38,21 +38,21 @@ class Tile:
         (236, 202, 80),
     ]
 
-    def __init__(self, value, row, col) -> None:
+    def __init__(self, value, row, col):
         self.value = value
         self.row = row
         self.col = col
         self.x = col * RECT_WIDTH
         self.y = row * RECT_HEIGHT
 
-    def get_color(self) -> tuple:
+    def get_color(self):
         color_index = int(math.log2(self.value)) - 1
         return self.COLORS[color_index]
 
-    def draw(self, window) -> None:
+    def draw(self, window):
         color = self.get_color()
         pygame.draw.rect(window, color, (self.x, self.y, RECT_WIDTH, RECT_HEIGHT))
-        text = FONT.render(str(self.value), True, FONT_COLOR)
+        text = FONT.render(str(self.value), 1, FONT_COLOR)
         window.blit(
             text,
             (
@@ -69,9 +69,9 @@ class Tile:
             self.row = math.floor(self.y / RECT_HEIGHT)
             self.col = math.floor(self.x / RECT_WIDTH)
 
-    def move(self, delta) -> None:
-        self.x = delta[0]
-        self.y = delta[1]
+    def move(self, delta):
+        self.x += delta[0]
+        self.y += delta[1]
 
 
 def draw_grid(window) -> None:
@@ -96,7 +96,8 @@ def draw(window, tiles) -> None:
 
 
 def get_random_pos(tiles) -> tuple:
-    row = col = None
+    row = None
+    col = None
     while True:
         col = random.randrange(0, COLS)
         row = random.randrange(0, ROWS)
@@ -105,8 +106,8 @@ def get_random_pos(tiles) -> tuple:
     return row, col
 
 
-def move_tiles(window, tiles, clock, direction) -> None:
-    update = True
+def move_tiles(window, tiles, clock, direction):
+    updated = True
     blocks = set()
 
     if direction == "left":
@@ -121,15 +122,42 @@ def move_tiles(window, tiles, clock, direction) -> None:
         )
         ceil = True
     elif direction == "right":
-        pass
+        sort_func = lambda x: x.col
+        reverse = True
+        delta = (MOVE_VEL, 0)
+        boundary_check = lambda tile: tile.col == COLS - 1
+        get_next_tile = lambda tile: tiles.get(f"{tile.row}{tile.col + 1}")
+        merge_check = lambda tile, next_tile: tile.x < next_tile.x - MOVE_VEL
+        move_check = (
+            lambda tile, next_tile: tile.x + RECT_WIDTH + MOVE_VEL < next_tile.x
+        )
+        ceil = False
     elif direction == "up":
-        pass
+        sort_func = lambda x: x.row
+        reverse = False
+        delta = (0, -MOVE_VEL)
+        boundary_check = lambda tile: tile.row == 0
+        get_next_tile = lambda tile: tiles.get(f"{tile.row - 1}{tile.col}")
+        merge_check = lambda tile, next_tile: tile.y > next_tile.y + MOVE_VEL
+        move_check = (
+            lambda tile, next_tile: tile.y > next_tile.y + RECT_HEIGHT + MOVE_VEL
+        )
+        ceil = True
     elif direction == "down":
-        pass
+        sort_func = lambda x: x.row
+        reverse = True
+        delta = (0, MOVE_VEL)
+        boundary_check = lambda tile: tile.row == ROWS - 1
+        get_next_tile = lambda tile: tiles.get(f"{tile.row + 1}{tile.col}")
+        merge_check = lambda tile, next_tile: tile.y < next_tile.y - MOVE_VEL
+        move_check = (
+            lambda tile, next_tile: tile.y + RECT_HEIGHT + MOVE_VEL < next_tile.y
+        )
+        ceil = False
 
-    while update:
+    while updated:
         clock.tick(FPS)
-        update = False
+        updated = False
         sorted_tiles = sorted(tiles.values(), key=sort_func, reverse=reverse)
         for i, tile in enumerate(sorted_tiles):
             if boundary_check(tile):
@@ -152,8 +180,9 @@ def move_tiles(window, tiles, clock, direction) -> None:
                 tile.move(delta)
             else:
                 continue
+
             tile.set_pos(ceil)
-            update = True
+            updated = True
         update_tiles(window, tiles, sorted_tiles)
     return end_move(tiles)
 
@@ -167,14 +196,14 @@ def end_move(tiles) -> str:
     return "continue"
 
 
-def update_tiles(window, tiles, sorted_tiles) -> None:
+def update_tiles(window, tiles, sorted_tiles):
     tiles.clear()
     for tile in sorted_tiles:
         tiles[f"{tile.row}{tile.col}"] = tile
     draw(window, tiles)
 
 
-def generate_tiles() -> dict:
+def generate_tiles():
     tiles = {}
     for _ in range(2):
         row, col = get_random_pos(tiles)
